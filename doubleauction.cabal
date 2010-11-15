@@ -1,0 +1,19 @@
+name:                doubleauction
+version:             0.1
+synopsis:            <Project description>
+description:         <Project description>
+category:
+license:             AllRightsReserved
+license-file:        LICENSE
+author:              Dubhrosa
+maintainer:          tomdoris@gmail.com
+build-depends:       base >= 3.0, 
+                     QuickCheck >= 1.2,
+                     HUnit 
+build-type:          Simple
+
+executable:          doubleauction
+main-is:             Main.hs
+other-modules:       DoubleAuction
+ghc-options:
+
