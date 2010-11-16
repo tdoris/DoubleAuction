@@ -17,30 +17,37 @@ extract [] = []
 extract ((Just x):t) = x : extract t
 extract (_:t) = extract t
 
+intract :: [a] -> [Maybe a]
+intract [] = []
+intract (x:xs) = Just x : intract xs
+
 add :: Book -> Order -> (Book, [Trade])
 add (Book os) o = 
   case residual of 
     Nothing -> (Book os', ts) 
     Just r -> (Book (insertInBook os' r), ts) 
-  where (osts, residual) = scanMatch match os o
-        os' = map fst osts
+  where (osts, residual) = scanMatch match os (Just o)
+        os' = extract $ map fst osts
         ts = extract $ map snd osts
 
 insertInBook :: [Order] -> Order -> [Order]
 insertInBook [] o = [o]
 insertInBook os@(h:r) o = if o < h then o:os else h : insertInBook r o
 
-scanMatch :: (Order -> Order -> (Order, Order, Maybe Trade)) -> [Order]->Order->([(Order, Maybe Trade)], Maybe Order)
-scanMatch _ [] o | ordersize o == 0 = ([], Nothing)
-scanMatch _ [] o | ordersize o > 0 = ([], Just o)
-scanMatch f (h:os) o = ((resB, t) : fmL, fmo)
+scanMatch :: (Order -> Order -> (Maybe Order, Maybe Order, Maybe Trade)) -> [Order]->Maybe Order->([(Maybe Order, Maybe Trade)], Maybe Order)
+scanMatch _ [] (Just o) = ([], Just o)
+scanMatch _ os Nothing = (zip (intract os) (repeat Nothing) , Nothing)
+scanMatch f (h:os) (Just o) = ((resB, t) : fmL, fmo)
   where (resB, resO, t) = match h o
         (fmL, fmo) = scanMatch f os resO
 
-match:: Order -> Order -> (Order, Order, Maybe Trade)
-match o1 o2 = if not (doesmatch o1 o2) then (o1, o2, Nothing) 
-              else ( o1 { ordersize = (ordersize o1 - matchqty)}, o2 { ordersize = ordersize o2 - matchqty }, Just (Trade matchqty (orderprice o1)))
+-- match two orders, return residuals and trade
+match:: Order -> Order -> (Maybe Order, Maybe Order, Maybe Trade)
+match o1 o2 = (resid o1, resid o2, t)
   where matchqty = min (ordersize o1) (ordersize o2)
+        t = if not matches then Nothing else Just (Trade matchqty (orderprice o1))
+        resid order = if not matches then Just order else (if ordersize order == matchqty then Nothing else Just order { ordersize = ordersize order - matchqty } )
+        matches = doesmatch o1 o2
 
 doesmatch :: Order->Order->Bool
 doesmatch (Order side1 _ _) (Order side2 _ _) | side1 == side2  = False
