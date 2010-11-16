@@ -8,7 +8,7 @@ license-file:        LICENSE
 author:              Dubhrosa
 maintainer:          tomdoris@gmail.com
 build-depends:       base >= 3.0, 
-                     QuickCheck >= 1.2,
+                     QuickCheck >= 2.4,
                      HUnit 
 build-type:          Simple
 
