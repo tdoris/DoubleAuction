@@ -1,9 +1,9 @@
-module DoubleAuction( match, extract, scanMatch, doesmatch, Order(..), Side(..), Trade(..), Book(..)) where
+module DoubleAuction( match, extract, scanMatch, pricematch, Order(..), Side(..), Trade(..), Book(..)) where
 
 data Side = Buy | Sell deriving (Show,Eq)
 
 data Order = Order {orderside :: Side, ordersize :: Integer, orderprice :: Double} deriving (Show, Eq)
-data Trade = Trade {tradesize::Integer, tradeprice::Double} deriving Show
+data Trade = Trade {tradesize::Integer, tradeprice::Double} deriving (Show,Eq)
 data Book = Book [Order] deriving Show
 
 instance Ord Order where
@@ -47,11 +47,11 @@ match o1 o2 = (resid o1, resid o2, t)
   where matchqty = min (ordersize o1) (ordersize o2)
         t = if not matches then Nothing else Just (Trade matchqty (orderprice o1))
         resid order = if not matches then Just order else (if ordersize order == matchqty then Nothing else Just order { ordersize = ordersize order - matchqty } )
-        matches = doesmatch o1 o2
+        matches = pricematch o1 o2 && matchqty >0
 
-doesmatch :: Order->Order->Bool
-doesmatch (Order side1 _ _) (Order side2 _ _) | side1 == side2  = False
-doesmatch (Order side1 _ price1) (Order side2 _ price2) = sellprice <= buyprice
+pricematch :: Order->Order->Bool
+pricematch (Order side1 _ _) (Order side2 _ _) | side1 == side2  = False
+pricematch (Order side1 _ price1) (Order side2 _ price2) = sellprice <= buyprice
   where buyprice | side1 == Buy = price1
                  | side2 == Buy = price2
         sellprice | side1 == Sell = price1
