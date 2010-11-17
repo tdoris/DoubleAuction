@@ -20,9 +20,7 @@ add os o =
   case residual of 
     Nothing -> (os', ts) 
     Just r -> if tif r == IOC then (os', ts) else ((insertInBook os' r), ts) 
-  where (osts, residual) = scanMatch match os (Just o)
-        os' = catMaybes $ map fst osts
-        ts = catMaybes $ map snd osts
+  where (os', ts, residual) = scanMatch' match os (Just o)
 
 insertInBook :: [Order] -> Order -> [Order]
 insertInBook [] o = [o]
@@ -32,8 +30,17 @@ scanMatch :: (Order -> Order -> (Maybe Order, Maybe Order, Maybe Trade)) -> [Ord
 scanMatch _ [] (Just o) = ([], Just o)
 scanMatch _ os Nothing = (zip (map Just os) (repeat Nothing) , Nothing)
 scanMatch f (h:os) (Just o) = ((resB, t) : fmL, fmo)
-  where (resB, resO, t) = match h o
+  where (resB, resO, t) = f h o
         (fmL, fmo) = scanMatch f os resO
+
+scanMatch' :: (Order -> Order -> (Maybe Order, Maybe Order, Maybe Trade)) -> [Order]->Maybe Order->([Order], [Trade], Maybe Order)
+scanMatch' _ [] (Just o) = ([],[], Just o)
+scanMatch' _ os Nothing = (os,[], Nothing)
+scanMatch' f (h:os) (Just o) = (newbook, trades, residual)
+  where newbook = if isNothing bookOrderResidual then fos else fromJust bookOrderResidual : fos
+        trades = if isNothing thisTrade then ftrades else fromJust thisTrade : ftrades
+        (bookOrderResidual, newOrderResidual, thisTrade) = f h o
+        (fos, ftrades, residual) = scanMatch' f os newOrderResidual
 
 -- match two orders, return residuals and trade
 match:: Order -> Order -> (Maybe Order, Maybe Order, Maybe Trade)
