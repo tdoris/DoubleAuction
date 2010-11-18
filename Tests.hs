@@ -2,6 +2,8 @@ import DoubleAuction
 import Test.QuickCheck
 import Text.Printf
 import Data.Maybe
+import Data.List
+
 instance Arbitrary TIF where
   arbitrary = elements [Day, IOC]
 
@@ -14,7 +16,7 @@ instance Arbitrary Order where
     size <- choose (0,100)
     price <- choose (0.0, 10.0)
     tif <- arbitrary
-    return (Order side size price tif)
+    return (Order side price size tif)
 
 trades :: [Order] -> Order -> [Trade]
 trades [] _ = []
@@ -33,7 +35,7 @@ residual :: [Order]-> Order -> Order
 residual os o = o { ordersize = ordersize o - tradedqty }
   where tradedqty = sum (map tradesize (trades os o))
  
-prop_pricematch_price o1 o2 = if orderside o1 /= orderside o2 && bprice >= sprice then pricematch o1 o2 == True else pricematch o1 o2== False
+prop_pricematch_price o1 o2 = if orderside o1 /= orderside o2 && bprice >= sprice then pricematch o1 o2 else not (pricematch o1 o2)
                             where bprice = if orderside o1 == Buy then orderprice o1 else orderprice o2
                                   sprice = if orderside o1 == Sell then orderprice o1 else orderprice o2
 
@@ -42,43 +44,42 @@ prop_scanMatch_qty_invariant os o =
   case residual of 
     Nothing ->sumQty newbook +  (2 * sumTradeQty trades) == sumQty os + ordersize o
     Just r -> ordersize r  + sumQty newbook +  (2 * sumTradeQty trades) == sumQty os + ordersize o
-  where (osts, residual) = scanMatch match os (Just o)
-        newbook = catMaybes $ map fst osts
-        trades = catMaybes (map snd osts)
-        sumQty orders = sum (map ordersize orders)
-        sumTradeQty ts = sum (map tradesize ts)
+  where (newbook,trades, residual) = scanMatch match os (Just o)
+        sumQty = sum . map ordersize
+        sumTradeQty = sum . map tradesize
 
 prop_repeat_match_on_residual os o = residualA == residualB
-  where (osts, residualA) = scanMatch match os o
-        (_, residualB) = case residualA of 
-                          Nothing -> ([], Nothing)
-                          Just r -> scanMatch match residualOrders (Just r)
-        residualOrders = catMaybes $ map fst osts
+  where (newbook, trades, residualA) = scanMatch match os o
+        (_, _,residualB) = case residualA of 
+                          Nothing -> ([], [], Nothing)
+                          Just r -> scanMatch match newbook (Just r)
 
 prop_order_count os o = after  <= before+1
   where before = length os
         after = length os'
-        os' = catMaybes $ map fst osts
-        tradeCount = (length . catMaybes) (map snd osts)
-        (osts, residual) = scanMatch match os (Just o)
+        tradeCount = length ts
+        (os', ts, residual) = scanMatch match os (Just o)
 
 prop_trades_correct::[Order] -> Order -> Bool 
-prop_trades_correct os o = trades os o == catMaybes (map snd (fst (scanMatch match os (Just o)))) 
+prop_trades_correct os o = trades os o == ts
+  where (_,ts,_) = scanMatch match os (Just o)
 
 prop_orders_correct::[Order] -> Order -> Bool 
-prop_orders_correct os o = orders os o == catMaybes (map fst (fst (scanMatch match os (Just o)))) 
+prop_orders_correct os o = orders os o == os'
+  where (os', _,_) = scanMatch match os (Just o)
 
 prop_residual_correct::[Order] -> Order -> Bool 
 prop_residual_correct os o =  (ordersize o - totalTraded ) == residual
   where totalTraded = sum (map tradesize (trades os o))
-        residual = case snd (scanMatch match os (Just o)) of
+        (_,_,r) = scanMatch match os (Just o)
+        residual = case r of
                     Nothing -> 0
                     Just x -> ordersize x
 
 prop_add_correct :: [Order]->Order -> Bool
 prop_add_correct os o = newbook == newbook' && ts == ts'
   where (newbook, ts) = add os o
-        newbook' = if ordersize res > 0 && tif res == Day then insertInBook (orders os o) res else orders os o
+        newbook' = if ordersize res > 0 && tif res == Day then insert res (orders os o) else orders os o
         ts' = trades os o
         res = residual os o
 
